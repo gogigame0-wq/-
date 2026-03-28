@@ -41,10 +41,28 @@
       padding: 20px;
     }
 
+    .card {
+      position: relative;
+    }
+
     .gallery img {
       width: 100%;
       border-radius: 12px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+
+    .delete-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(231, 76, 60, 0.9);
+      border: none;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
     }
 
     .status {
@@ -108,11 +126,32 @@ const STORAGE_KEY = "photo_gallery";
 function loadImages() {
   gallery.innerHTML = "";
   const images = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-  images.forEach(src => {
+
+  images.forEach((src, index) => {
+    const card = document.createElement("div");
+    card.className = "card";
+
     const img = document.createElement("img");
     img.src = src;
-    gallery.appendChild(img);
+
+    const delBtn = document.createElement("button");
+    delBtn.className = "delete-btn";
+    delBtn.textContent = "×";
+
+    delBtn.onclick = () => deleteImage(index);
+
+    card.appendChild(img);
+    card.appendChild(delBtn);
+    gallery.appendChild(card);
   });
+}
+
+// Delete image
+function deleteImage(index) {
+  const images = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+  images.splice(index, 1);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(images));
+  loadImages();
 }
 
 // Save image
@@ -135,16 +174,14 @@ fileInput.addEventListener("change", () => {
   if (file) reader.readAsDataURL(file);
 });
 
-// Handle redirect login (fallback)
+// Handle redirect login
 getRedirectResult(auth)
   .then((result) => {
     if (result && result.user) {
       onLoginSuccess();
     }
   })
-  .catch((error) => {
-    console.error(error);
-  });
+  .catch(console.error);
 
 function onLoginSuccess() {
   loginBtn.style.display = "none";
@@ -153,24 +190,19 @@ function onLoginSuccess() {
   statusDiv.textContent = "✅ Влязъл си успешно";
 }
 
-// Login (FIXED)
+// Login
 loginBtn.addEventListener("click", async () => {
   statusDiv.textContent = "🔄 Влизане...";
 
   try {
-    // Try popup first
     await signInWithPopup(auth, provider);
     onLoginSuccess();
   } catch (error) {
-    console.warn("Popup error:", error.code);
-
-    if (error.code === "auth/popup-blocked" || error.code === "auth/cancelled-popup-request") {
-      statusDiv.textContent = "⚠️ Popup блокиран → пренасочване...";
-
-      // Fallback to redirect (WORKS ALWAYS)
+    if (error.code === "auth/popup-blocked") {
+      statusDiv.textContent = "⚠️ Пренасочване...";
       await signInWithRedirect(auth, provider);
     } else {
-      statusDiv.textContent = "❌ Грешка: " + error.message;
+      statusDiv.textContent = "❌ " + error.message;
     }
   }
 });
