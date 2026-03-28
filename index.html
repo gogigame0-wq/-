@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+  <meta charset="UTF-8">
+  <title>Фото Галерия</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      text-align: center;
+    }
+
+    header {
+      padding: 20px;
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px;
+    }
+
+    .login-btn { background: #4285F4; color: white; }
+    .logout-btn { background: #e74c3c; color: white; }
+
+    .upload {
+      margin: 20px;
+    }
+
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 15px;
+      padding: 20px;
+    }
+
+    .gallery img {
+      width: 100%;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+
+    .status {
+      margin-top: 10px;
+      font-size: 14px;
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+
+<header>📸 Фото Галерия</header>
+
+<button id="login" class="login-btn">Вход с Google</button>
+<button id="logout" class="logout-btn" style="display:none;">Изход</button>
+
+<div class="status" id="status"></div>
+
+<div class="upload" style="display:none;">
+  <input type="file" id="fileInput" accept="image/*">
+</div>
+
+<div class="gallery" id="gallery"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+import { 
+  getAuth, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
+  signOut 
+} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA-BE3oqcclIQmGqQ0vtReijbJ6O2kjWsw",
+  authDomain: "sites-bc684.firebaseapp.com",
+  projectId: "sites-bc684",
+  storageBucket: "sites-bc684.firebasestorage.app",
+  messagingSenderId: "286885029489",
+  appId: "1:286885029489:web:3a7beaebad975318311dd0",
+  measurementId: "G-GXE5ETTQ22"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+
+const loginBtn = document.getElementById("login");
+const logoutBtn = document.getElementById("logout");
+const uploadDiv = document.querySelector(".upload");
+const fileInput = document.getElementById("fileInput");
+const gallery = document.getElementById("gallery");
+const statusDiv = document.getElementById("status");
+
+// Local storage key
+const STORAGE_KEY = "photo_gallery";
+
+// Load images
+function loadImages() {
+  gallery.innerHTML = "";
+  const images = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+  images.forEach(src => {
+    const img = document.createElement("img");
+    img.src = src;
+    gallery.appendChild(img);
+  });
+}
+
+// Save image
+function saveImage(base64) {
+  const images = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+  images.push(base64);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(images));
+  loadImages();
+}
+
+// Upload image
+fileInput.addEventListener("change", () => {
+  const file = fileInput.files[0];
+  const reader = new FileReader();
+
+  reader.onload = () => {
+    saveImage(reader.result);
+  };
+
+  if (file) reader.readAsDataURL(file);
+});
+
+// Handle redirect login (fallback)
+getRedirectResult(auth)
+  .then((result) => {
+    if (result && result.user) {
+      onLoginSuccess();
+    }
+  })
+  .catch((error) => {
+    console.error(error);
+  });
+
+function onLoginSuccess() {
+  loginBtn.style.display = "none";
+  logoutBtn.style.display = "inline-block";
+  uploadDiv.style.display = "block";
+  statusDiv.textContent = "✅ Влязъл си успешно";
+}
+
+// Login (FIXED)
+loginBtn.addEventListener("click", async () => {
+  statusDiv.textContent = "🔄 Влизане...";
+
+  try {
+    // Try popup first
+    await signInWithPopup(auth, provider);
+    onLoginSuccess();
+  } catch (error) {
+    console.warn("Popup error:", error.code);
+
+    if (error.code === "auth/popup-blocked" || error.code === "auth/cancelled-popup-request") {
+      statusDiv.textContent = "⚠️ Popup блокиран → пренасочване...";
+
+      // Fallback to redirect (WORKS ALWAYS)
+      await signInWithRedirect(auth, provider);
+    } else {
+      statusDiv.textContent = "❌ Грешка: " + error.message;
+    }
+  }
+});
+
+// Logout
+logoutBtn.onclick = () => {
+  signOut(auth).then(() => {
+    loginBtn.style.display = "inline-block";
+    logoutBtn.style.display = "none";
+    uploadDiv.style.display = "none";
+    statusDiv.textContent = "";
+  });
+};
+
+// Init
+loadImages();
+</script>
+
+</body>
+</html>
